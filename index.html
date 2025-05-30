@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Refactor Example</title>
+<style>
+  /* === Estilos Globais === */
+  body {
+    font-family: sans-serif;
+    margin: 20px; /* Adiciona margem para não colar nas bordas */
+    line-height: 1.6; /* Melhora a legibilidade */
+  }
+
+  /* === Classes Utilitárias === */
+  .hidden {
+    display: none;
+  }
+
+  /* === Layout Principal e Botões de Ação === */
+  h1 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  /* Estilos para botões principais podem ser adicionados aqui se necessário */
+  button {
+    padding: 8px 15px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    margin-right: 10px; /* Espaçamento entre botões */
+  }
+  button:hover {
+    background-color: #e0e0e0;
+  }
+  button:disabled {
+    background-color: #f0f0f0;
+    color: #999;
+    cursor: not-allowed;
+  }
+  #categoriesContainer {
+    margin-top: 20px;
+  }
+
+  /* === Estilos de Categoria === */
+  .image-category {
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    padding: 15px; /* Aumentado padding */
+    border-radius: 5px; /* Bordas arredondadas */
+  }
+  .image-category h3 {
+    margin-top: 0;
+    margin-bottom: 10px; /* Espaçamento abaixo do título da categoria */
+  }
+  .image-category input[type="text"].category-name-input {
+    width: calc(100% - 22px); /* Ajusta para padding e borda */
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  .image-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+  .image-container .image-item {
+    position: relative;
+  }
+  .image-container img {
+    max-width: 100px;
+    max-height: 60px;
+    border: 1px solid #eee;
+    display: block;
+    border-radius: 3px; /* Pequeno arredondamento nas imagens */
+  }
+  .remove-image-btn {
+    position: absolute;
+    top: -8px; /* Ajustado para melhor visualização */
+    right: -8px; /* Ajustado para melhor visualização */
+    background: rgba(0,0,0,0.6);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.5); /* Borda sutil */
+    border-radius: 50%;
+    width: 22px; /* Aumentado tamanho */
+    height: 22px; /* Aumentado tamanho */
+    font-size: 14px; /* Aumentado tamanho da fonte */
+    line-height: 20px; /* Ajustado para alinhar o 'x' */
+    text-align: center;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s, background-color 0.2s;
+  }
+  .remove-image-btn:hover {
+    background: rgba(200,0,0,0.8); /* Cor mais forte no hover */
+    opacity: 1;
+  }
+
+  /* === Modal da Câmera === */
+  #cameraModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.6); /* Escurecido um pouco mais */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000; /* Acima da área de notificação */
+  }
+  #cameraModal > div { /* Conteúdo da modal */
+    background:white;
+    padding:25px; /* Aumentado padding */
+    border-radius:8px; /* Bordas mais arredondadas */
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  }
+  #cameraModal h2 {
+    margin-top:0;
+    margin-bottom: 15px; /* Espaçamento abaixo do título da modal */
+    font-size: 1.5em;
+  }
+  #cameraModal video {
+    max-width: 100%;
+    max-height: 65vh; /* Ajustado para não ficar muito grande */
+    display: block; /* Para centralizar se tiver margem automática */
+    margin: 0 auto 15px auto; /* Espaçamento e centralização */
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  #cameraModal button {
+    margin: 5px; /* Espaçamento entre botões da modal */
+  }
+
+  /* === Área de Notificação === */
+  #notification-area {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 25px; /* Aumentado padding */
+    border-radius: 5px;
+    color: white;
+    font-size: 1em; /* Ligeiramente maior */
+    z-index: 1000;
+    display: none;
+    cursor: pointer;
+    min-width: 320px; /* Ligeiramente maior */
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
+  #notification-area.info { background-color: #3498db; }
+  #notification-area.success { background-color: #2ecc71; }
+  #notification-area.warning { background-color: #f39c12; }
+  #notification-area.error { background-color: #e74c3c; }
+
+  /* === Indicador de Carregamento === */
+  #loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8); /* Fundo branco semitransparente */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000; /* Acima de tudo */
+  }
+  #loading p {
+    background-color: #333;
+    color: white;
+    padding: 20px 30px;
+    border-radius: 5px;
+    font-size: 1.1em;
+  }
+
+  /* === Estilos para Validação de Campos === */
+  input.input-error,
+  input[type="text"]:invalid {
+    border-color: red !important; /* !important para sobrepor outros estilos de borda se necessário */
+    box-shadow: 0 0 5px rgba(255,0,0,0.7) !important;
+  }
+  input[type="text"].category-name-input:focus {
+    border-color: #80bdff; /* Destaque no foco, similar ao Bootstrap */
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+    outline: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="notification-area" role="alert" aria-live="assertive"></div>
+
+<h1>Image Capture and PDF Generator</h1>
+
+<button id="addCategory" type="button">Adicionar Nova Categoria</button>
+<button id="generatePdf" type="button">Gerar PDF</button>
+
+<div id="categoriesContainer">
+  <!-- Categorias serão adicionadas aqui pelo JavaScript -->
+</div>
+
+<div id="loading" class="hidden"><p>Loading...</p></div>
+
+<div id="cameraModal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="cameraModalTitle">
+  <div> <!-- Estilos já definidos em #cameraModal > div -->
+    <h2 id="cameraModalTitle">Captura de Imagem</h2> <!-- Estilos já definidos em #cameraModal h2 -->
+    <video id="cameraFeed" autoplay></video> <!-- Estilos já definidos em #cameraModal video -->
+    <button id="captureBtn" type="button">Capturar Imagem</button> <!-- Estilos já definidos em #cameraModal button -->
+    <button id="closeModalBtn" type="button" aria-label="Fechar modal da câmera">Fechar Câmera</button> <!-- Estilos já definidos em #cameraModal button -->
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// --- Global Variables & DOM Elements ---
+let globalStream; // For the camera stream, renamed from 'stream' to avoid conflict with cameraManager.stream
+let globalCurrentCategoryElement = null; // Renamed for clarity
+let globalCategoryCounter = 0; // Renamed for clarity
+
+const domElements = {
+  loadingIndicator: document.getElementById('loading'),
+  cameraModal: document.getElementById('cameraModal'),
+  cameraFeed: document.getElementById('cameraFeed'),
+  captureBtn: document.getElementById('captureBtn'),
+  closeModalBtn: document.getElementById('closeModalBtn'),
+  addCategoryBtn: document.getElementById('addCategory'),
+  generatePdfBtn: document.getElementById('generatePdf'),
+  categoriesContainer: document.getElementById('categoriesContainer')
+};
+
+// --- Namespaces ---
+const uiUtils = {
+  /** @type {HTMLDivElement | null} */
+  currentCategoryElementForImage: null, // Tracks which category is being added to
+  notificationTimeout: null, // To store the timeout ID for notifications
+
+  /**
+   * Shows a notification message on the UI.
+   * @param {string} message - The message to display.
+   * @param {'info' | 'success' | 'warning' | 'error'} type - The type of notification.
+   * @param {number} duration - How long the notification should be visible (in ms).
+   */
+  showNotification: function(message, type = 'info', duration = 5000) {
+    const notificationArea = document.getElementById('notification-area');
+    if (!notificationArea) {
+      console.error("Notification area not found!");
+      return;
+    }
+
+    // Clear previous timeout if any
+    if (this.notificationTimeout) {
+      clearTimeout(this.notificationTimeout);
+    }
+
+    notificationArea.textContent = message;
+    notificationArea.className = ''; // Clear all previous classes
+    notificationArea.classList.add(type); // Add the type class for styling
+    notificationArea.style.display = 'block';
+
+    // Auto-hide after duration
+    this.notificationTimeout = setTimeout(() => {
+      notificationArea.style.display = 'none';
+    }, duration);
+
+    // Hide on click
+    notificationArea.onclick = () => {
+      clearTimeout(this.notificationTimeout); // Clear timeout if manually closed
+      notificationArea.style.display = 'none';
+    };
+  },
+
+  /**
+   * Shows the loading indicator.
+   */
+  showLoading: function() {
+    domElements.loadingIndicator.classList.remove('hidden');
+  },
+
+  /**
+   * Hides the loading indicator.
+   */
+  hideLoading: function() {
+    domElements.loadingIndicator.classList.add('hidden');
+  },
+
+  /**
+   * Opens the camera modal.
+   * @param {HTMLElement} categoryElement - The category element to which the image will be added.
+   */
+  openCameraModal: function(categoryElement) {
+    this.currentCategoryElementForImage = categoryElement;
+    domElements.cameraModal.classList.remove('hidden');
+    cameraManager.startCamera();
+  },
+
+  /**
+   * Closes the camera modal and stops the camera stream.
+   */
+  closeModal: function() {
+    cameraManager.stopCamera();
+    domElements.cameraModal.classList.add('hidden');
+    this.currentCategoryElementForImage = null; // Reset after closing
+  },
+
+  /**
+   * Adds a new image to the specified category element.
+   * @param {string} imageDataUrl - The data URL of the image to add.
+   */
+  addImageToCategory: function(imageDataUrl) {
+    if (!this.currentCategoryElementForImage) {
+      console.error("No category selected to add image.");
+      // uiUtils.showNotification below will handle user feedback if this rare case happens
+      this.closeModal(); // Ensure modal is closed if something went wrong
+      uiUtils.showNotification("Erro: Nenhuma categoria selecionada para adicionar a imagem.", 'error');
+      return;
+    }
+
+    const img = document.createElement('img');
+    img.src = imageDataUrl;
+    img.dataset.isRotated = "false";
+    // Tentativa de obter o nome da categoria para o alt text
+    let altText = "Imagem capturada";
+    if (this.currentCategoryElementForImage) {
+        const nameInput = this.currentCategoryElementForImage.querySelector('.category-name-input');
+        if (nameInput && nameInput.value) {
+            altText = `Imagem para ${nameInput.value.trim()}`;
+        } else {
+            // Fallback se o nome da categoria ainda não estiver definido ou for o padrão
+             const categoryTitleElement = this.currentCategoryElementForImage.querySelector('h3');
+             if (categoryTitleElement) {
+                 altText = `Imagem para ${categoryTitleElement.textContent.trim()}`;
+             }
+        }
+    }
+    img.alt = altText;
+    /**
+     * Handles click events on the image for rotation.
+     */
+    img.onclick = () => {
+        const rotated = img.dataset.isRotated === "true";
+        img.style.transform = rotated ? "rotate(0deg)" : "rotate(90deg)";
+        img.dataset.isRotated = String(!rotated); // Store as string
+    };
+
+    const imageItemDiv = document.createElement('div');
+    imageItemDiv.className = 'image-item';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-image-btn';
+    removeBtn.innerHTML = '&times;'; // "X" symbol
+    removeBtn.onclick = function() {
+      imageItemDiv.remove(); // Remove o div que contém a imagem e o botão
+      eventSetup.updateGeneratePdfButtonState(); // Atualiza o estado do botão PDF
+    };
+
+    imageItemDiv.appendChild(img);
+    imageItemDiv.appendChild(removeBtn);
+
+    let imageContainer = this.currentCategoryElementForImage.querySelector('.image-container');
+    if (!imageContainer) {
+        imageContainer = document.createElement('div');
+        imageContainer.className = 'image-container';
+        this.currentCategoryElementForImage.appendChild(imageContainer);
+    }
+    imageContainer.appendChild(imageItemDiv);
+    eventSetup.updateGeneratePdfButtonState(); // Atualiza o estado do botão PDF
+    this.closeModal();
+  }
+};
+
+const cameraManager = {
+  stream: null, // Holds the MediaStream object
+
+  /**
+   * Starts the camera and displays the feed.
+   */
+  startCamera: function() {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then((mediaStream) => { // Renamed 's' to 'mediaStream'
+          this.stream = mediaStream;
+          domElements.cameraFeed.srcObject = this.stream;
+          domElements.cameraFeed.play();
+        })
+        .catch((err) => {
+          console.error("Error accessing camera: ", err);
+          let userMessage = "Não foi possível iniciar a câmera. Verifique se ela não está em uso por outro aplicativo ou se as permissões foram concedidas.";
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            userMessage = "Permissão da câmera negada. Por favor, habilite o acesso à câmera nas configurações do seu navegador.";
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            userMessage = "Nenhuma câmera encontrada. Verifique se uma câmera está conectada e habilitada.";
+          } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+            userMessage = "A câmera está em uso por outro aplicativo ou houve um erro de hardware.";
+          }
+          uiUtils.showNotification(userMessage, 'error', 7000);
+          uiUtils.closeModal();
+        });
+    } else {
+      uiUtils.showNotification("Seu navegador não suporta acesso à câmera.", 'error', 7000);
+      uiUtils.closeModal();
+    }
+  },
+
+  /**
+   * Stops the camera stream.
+   */
+  stopCamera: function() {
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+    domElements.cameraFeed.srcObject = null;
+  },
+
+  /**
+   * Captures an image from the camera feed.
+   * The captured image is passed to uiUtils.addImageToCategory.
+   */
+  captureImage: function() {
+    if (!uiUtils.currentCategoryElementForImage) {
+      // This case should ideally be prevented by disabling capture if currentCategoryElementForImage is null
+      // but as a safeguard:
+      uiUtils.showNotification("Nenhuma categoria selecionada para adicionar a imagem.", 'warning');
+      uiUtils.closeModal();
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = domElements.cameraFeed.videoWidth;
+    canvas.height = domElements.cameraFeed.videoHeight;
+    const context = canvas.getContext('2d');
+    context.drawImage(domElements.cameraFeed, 0, 0, canvas.width, canvas.height);
+    // Convert to JPEG with quality 0.8. This can be adjusted (0.1 to 1.0)
+    // to balance image quality and file size. PNG would be lossless but larger.
+    const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    uiUtils.addImageToCategory(imageDataUrl);
+    uiUtils.showNotification("Imagem capturada com sucesso!", 'success', 3000);
+  }
+};
+
+const pdfProcessor = {
+  /**
+   * Loads an image from a source URL.
+   * @param {string} src - The source URL of the image.
+   * @returns {Promise<HTMLImageElement>} A promise that resolves with the loaded image.
+   */
+  loadImage: async function(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = (errEvent) => { // Pass the event or a custom error object
+        console.error("Error loading image:", src, errEvent);
+        reject({ src: src, errorEvent: errEvent }); // Reject with more info
+      };
+      img.src = src;
+    });
+  },
+
+  /**
+   * Generates a PDF document from the images in the categories.
+   */
+  generatePDF: async function() {
+    const loadingTextElement = domElements.loadingIndicator.querySelector('p');
+    if (loadingTextElement) loadingTextElement.textContent = 'Iniciando geração do PDF...';
+    uiUtils.showLoading();
+
+    try {
+      // Validação dos campos de nome da categoria
+      let firstInvalidField = null;
+      const categoryNameInputs = document.querySelectorAll('.image-category input[type="text"][required]');
+      categoryNameInputs.forEach(input => {
+        input.classList.remove('input-error'); // Limpa erros anteriores
+        if (!input.value.trim()) {
+          input.classList.add('input-error');
+          if (!firstInvalidField) {
+            firstInvalidField = input;
+          }
+        }
+      });
+
+      if (firstInvalidField) {
+        uiUtils.showNotification("Por favor, preencha o nome de todas as categorias.", 'warning');
+        firstInvalidField.focus();
+        if (loadingTextElement) loadingTextElement.textContent = 'Loading...';
+        uiUtils.hideLoading(); // Esconde o loading se a validação falhar
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF();
+    let yPos = 10; // Initial Y position for content
+    const pageHeight = pdf.internal.pageSize.height;
+    const pageWidth = pdf.internal.pageSize.width;
+    const margin = 10;
+    const imgRenderWidth = (pageWidth - margin * 3) / 2; // Width for rendering images in PDF (2 per row)
+
+    const pdfCategoriesData = []; // Renamed from allImagesData
+
+    document.querySelectorAll('.image-category').forEach(categoryDiv => {
+      const categoryNameInput = categoryDiv.querySelector('input[type="text"]');
+      const categoryName = categoryNameInput ? categoryNameInput.value : 'Untitled Category';
+      const images = [];
+      categoryDiv.querySelectorAll('.image-container img').forEach(imgElem => {
+          images.push({
+            src: imgElem.src,
+            isRotated: imgElem.style.transform.includes("90deg")
+          });
+      });
+      if (images.length > 0) {
+          pdfCategoriesData.push({ categoryName, images });
+      }
+    });
+
+    if (pdfCategoriesData.length === 0) {
+      uiUtils.showNotification("Nenhuma imagem para incluir no PDF.", 'warning');
+      uiUtils.hideLoading();
+      return;
+    }
+
+    let imagesSuccessfullyProcessed = 0;
+    let imagesFailedToProcess = 0;
+    let totalImagesToProcess = 0;
+    pdfCategoriesData.forEach(cat => totalImagesToProcess += cat.images.length);
+    let imagesProcessedCount = 0;
+
+    if (totalImagesToProcess === 0) { // This check is already done earlier, but as a safeguard for progress text
+        uiUtils.showNotification("Nenhuma imagem para incluir no PDF.", 'warning');
+        uiUtils.hideLoading(); // Ensure loading is hidden
+        return;
+    }
+
+
+    for (const category of pdfCategoriesData) {
+      // Check if new page is needed for category title
+      if (yPos + 20 > pageHeight - margin) {
+          pdf.addPage();
+          yPos = margin;
+      }
+      pdf.setFontSize(16);
+      pdf.text(category.categoryName, margin, yPos);
+      yPos += 10; // Space after category title
+
+      let xPos = margin;
+      let imageCounterInRow = 0;
+
+      for (const [index, imageSource] of category.images.entries()) {
+          imagesProcessedCount++;
+          if (loadingTextElement) {
+            loadingTextElement.textContent = `Processando ${imagesProcessedCount}/${totalImagesToProcess}: Imagem ${index + 1} de "${category.categoryName}"...`;
+          }
+
+          let imgToProcess = null;
+          try {
+            imgToProcess = await this.loadImage(imageSource.src);
+            imagesSuccessfullyProcessed++;
+          } catch (loadError) {
+            imagesFailedToProcess++;
+            console.error(`Error loading image for PDF: ${loadError.src}`, loadError.errorEvent);
+            uiUtils.showNotification(`Erro ao carregar imagem ${index + 1} da categoria "${category.categoryName}".`, 'error', 7000);
+
+            // Draw error message in PDF
+            if (yPos + 20 > pageHeight - margin) { pdf.addPage(); yPos = margin; xPos = margin; imageCounterInRow = 0;}
+            pdf.setFontSize(10); // Smaller font for error message in PDF
+            pdf.text(`Falha Img ${index + 1}`, xPos, yPos + (imgRenderWidth / 2) ); // Placeholder text
+            pdf.setFontSize(16); // Reset font size
+
+            // Adjust xPos and yPos as if an image was there, to maintain layout
+            if (imageCounterInRow % 2 !== 0) {
+                 xPos += imgRenderWidth + margin;
+            } else {
+                xPos = margin;
+                yPos += (imgRenderWidth / 2) + 5; // Approximate height for a failed image placeholder
+            }
+            imageCounterInRow++;
+            continue; // Skip to next image
+          }
+
+          const aspectRatio = imgToProcess.naturalWidth / imgToProcess.naturalHeight;
+          let pdfImgHeight, pdfImgWidth;
+
+          // Determine image dimensions in PDF based on rotation
+          if (imageSource.isRotated) {
+            // If the image is displayed rotated 90deg, its original height becomes width in layout
+            pdfImgHeight = imgRenderWidth;
+            pdfImgWidth = imgRenderWidth / aspectRatio;
+            // If calculated width (originally height) is too wide for the column, scale it down
+            if (pdfImgWidth > imgRenderWidth) {
+                pdfImgWidth = imgRenderWidth;
+                pdfImgHeight = pdfImgWidth * aspectRatio; // Recalculate height to maintain aspect ratio
+            }
+          } else {
+            pdfImgWidth = imgRenderWidth;
+            pdfImgHeight = imgRenderWidth / aspectRatio;
+          }
+
+          // Check if new page is needed for the image
+          if (yPos + pdfImgHeight > pageHeight - margin) {
+              pdf.addPage();
+              yPos = margin;
+              xPos = margin;
+              imageCounterInRow = 0; // Reset for new page
+          }
+
+          // Canvas rotation logic for PDF
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          if (imageSource.isRotated) {
+            // Set canvas dimensions to the rotated image's dimensions
+            canvas.width = imgToProcess.naturalHeight;
+            canvas.height = imgToProcess.naturalWidth; // height of original img becomes canvas height
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(90 * Math.PI / 180); // Rotate 90 degrees clockwise
+            // Draw image centered in the rotated canvas.
+            // Original image's naturalWidth and naturalHeight are used for drawing,
+            // but they are drawn onto the transformed (rotated) context.
+            ctx.drawImage(imgToProcess, -imgToProcess.naturalHeight / 2, -imgToProcess.naturalWidth / 2);
+          } else {
+            canvas.width = imgToProcess.naturalWidth;
+            canvas.height = imgToProcess.naturalHeight;
+            ctx.drawImage(imgToProcess, 0, 0);
+          }
+          // Convert canvas to JPEG with quality 0.8. This can be adjusted (0.1 to 1.0)
+          // to balance image quality and file size for the PDF.
+          const processedImageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+
+          // Add image to PDF with SLOW compression for better JPEG compression.
+          // `null` is for the alias parameter.
+          pdf.addImage(processedImageDataUrl, 'JPEG', xPos, yPos, pdfImgWidth, pdfImgHeight, null, 'SLOW');
+
+          imageCounterInRow++;
+          if (imageCounterInRow % 2 === 0) { // Two images per row
+              xPos = margin; // Reset xPos for next row
+              yPos += pdfImgHeight + 5; // Move to next row, add some padding
+          } else {
+              xPos += pdfImgWidth + margin; // Move to next column
+          }
+      }
+      // Ensure yPos is below the last drawn image/row in the category before adding space
+      if (imageCounterInRow % 2 !== 0) { // If an odd number of images, the yPos hasn't moved down yet
+          yPos += pdfImgHeight + 5;
+      }
+      yPos += 10; // Extra space after all images in a category
+    }
+
+    pdf.save("generated_document.pdf");
+
+    if (imagesFailedToProcess > 0) {
+        uiUtils.showNotification(`PDF gerado, mas ${imagesFailedToProcess} imagem(ns) falharam ao carregar.`, 'warning', 8000);
+    } else {
+        uiUtils.showNotification("PDF gerado com sucesso!", "success");
+    }
+  } catch (error) {
+      console.error("Erro inesperado durante a geração do PDF:", error);
+      uiUtils.showNotification("Ocorreu um erro inesperado ao gerar o PDF.", "error");
+  } finally {
+      if (loadingTextElement) loadingTextElement.textContent = 'Loading...'; // Reset loading text
+      uiUtils.hideLoading();
+  }
+  }
+};
+
+const eventSetup = {
+  /**
+   * Adds a new category section to the UI.
+   */
+  addCategory: function() {
+    const categories = domElements.categoriesContainer.querySelectorAll('.image-category');
+    if (categories.length > 0) {
+      const lastCategory = categories[categories.length - 1];
+      const lastCategoryNameInput = lastCategory.querySelector('input[type="text"]');
+      if (lastCategoryNameInput && !lastCategoryNameInput.value.trim()) {
+        uiUtils.showNotification("Por favor, preencha o nome da categoria anterior antes de adicionar uma nova.", 'warning');
+        lastCategoryNameInput.classList.add('input-error');
+        lastCategoryNameInput.focus();
+        return;
+      }
+    }
+
+    globalCategoryCounter++;
+    const categoryId = `category-${globalCategoryCounter}`; // Usado para IDs únicos
+    const categoryTitleId = `categoryTitle-${categoryId}`;
+    const categoryNameInputId = `categoryNameInput-${categoryId}`;
+
+    uiUtils.showNotification(`Categoria ${globalCategoryCounter} adicionada.`, 'info', 3000);
+    const categoryDiv = document.createElement('div');
+    categoryDiv.className = 'image-category';
+    categoryDiv.id = categoryId;
+    categoryDiv.setAttribute('role', 'group');
+    categoryDiv.setAttribute('aria-labelledby', categoryTitleId);
+
+    // Usar aria-label para o input de nome da categoria
+    const categoryNameInputHtml = `<input type="text" placeholder="Nome da Categoria (ex: Cozinha)" value="Categoria ${globalCategoryCounter}" required class="category-name-input" id="${categoryNameInputId}" aria-label="Nome da Categoria ${globalCategoryCounter}">`;
+
+    const categoryTitleHtml = `<h3 id="${categoryTitleId}">Categoria ${globalCategoryCounter}</h3>`;
+
+    categoryDiv.innerHTML = `
+      ${categoryTitleHtml}
+      ${categoryNameInputHtml}
+      <button class="openCamera" type="button">Adicionar Imagem</button>
+      <div class="image-container"></div>
+    `;
+    domElements.categoriesContainer.appendChild(categoryDiv);
+
+    const newNameInput = categoryDiv.querySelector('.category-name-input');
+    if (newNameInput) {
+      this.addRequiredFieldListener(newNameInput);
+    }
+
+    const openCameraButton = categoryDiv.querySelector('.openCamera');
+    if (openCameraButton) {
+        openCameraButton.addEventListener('click', () => {
+            uiUtils.openCameraModal(categoryDiv);
+        });
+    }
+    categoryDiv.scrollIntoView({ behavior: 'smooth' });
+    this.updateGeneratePdfButtonState();
+  },
+
+  /**
+   * Adds an event listener to a required field to remove error styling on input.
+   * @param {HTMLInputElement} field - The input field.
+   */
+  addRequiredFieldListener: function(field) {
+    field.addEventListener('input', () => {
+      if (field.value.trim()) {
+        field.classList.remove('input-error');
+      }
+    });
+  },
+
+  /**
+   * Checks if any images exist in any category and updates the Generate PDF button state.
+   */
+  updateGeneratePdfButtonState: function() {
+    let hasImages = false;
+    const allImageContainers = document.querySelectorAll('.image-container');
+    allImageContainers.forEach(container => {
+      if (container.querySelector('img')) {
+        hasImages = true;
+      }
+    });
+    domElements.generatePdfBtn.disabled = !hasImages;
+  },
+
+  /**
+   * Initializes all primary event listeners.
+   */
+  initialize: function() {
+    domElements.addCategoryBtn.addEventListener('click', this.addCategory.bind(this));
+    domElements.generatePdfBtn.addEventListener('click', pdfProcessor.generatePDF);
+    domElements.closeModalBtn.addEventListener('click', uiUtils.closeModal.bind(uiUtils));
+    domElements.captureBtn.addEventListener('click', cameraManager.captureImage.bind(cameraManager));
+
+    this.addCategory(); // Add one category by default
+
+    // Add input listener to the first category's name input
+    const firstCategoryNameInput = domElements.categoriesContainer.querySelector('.image-category input[type="text"]');
+    if (firstCategoryNameInput) {
+        this.addRequiredFieldListener(firstCategoryNameInput);
+    }
+
+    this.updateGeneratePdfButtonState();
+  }
+};
+
+// --- Event Listeners ---
+document.addEventListener('DOMContentLoaded', () => {
+  eventSetup.initialize();
+});
+
+</script>
+</body>
+</html>
