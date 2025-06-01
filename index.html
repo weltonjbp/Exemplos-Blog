@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Bar</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <style>
+        .custom-modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        .custom-modal-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .table-available {
+            background-color: #D4EDDA;
+            color: #155724;
+        }
+
+        .table-occupied {
+            background-color: #F8D7DA;
+            color: #721C24;
+        }
+
+        .table-selected {
+            background-color: #CCE5FF;
+            border: 2px solid #007BFF;
+        }
+
+        .category-button.active {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .toast.error {
+            background-color: #DC3545;
+        }
+
+        .toast.success {
+            background-color: #28A745;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <header class="bg-blue-600 text-white p-4 rounded-t-lg shadow-md">
+            <h1 class="text-3xl font-bold text-center">Sistema de Gerenciamento de Bar</h1>
+        </header>
+
+        <main class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+            <section id="tables-section" class="md:col-span-1 bg-white p-6 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-700">Mesas</h2>
+                    <button id="add-table-btn"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        <i class="fas fa-plus"></i> Adicionar Mesa
+                    </button>
+                </div>
+                <div id="tables-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                </div>
+            </section>
+
+            <section id="menu-section" class="md:col-span-1 bg-white p-6 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold text-gray-700">Cardápio</h2>
+                    <button id="add-item-btn"
+                        class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        <i class="fas fa-plus"></i> Adicionar Item
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <label for="category-filter" class="block text-sm font-medium text-gray-700 mb-1">Filtrar por
+                        Categoria:</label>
+                    <select id="category-filter"
+                        class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="all">Todas</option>
+                    </select>
+                </div>
+                <div id="menu-container" class="space-y-3 h-96 overflow-y-auto">
+                </div>
+            </section>
+
+            <section id="order-section" class="md:col-span-1 bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-semibold text-gray-700 mb-4">Pedido Atual (Mesa <span
+                        id="current-table-number">Nenhuma</span>)</h2>
+                <div id="order-details" class="space-y-2 mb-4 h-64 overflow-y-auto">
+                    <p class="text-gray-500 italic">Selecione uma mesa e adicione itens ao pedido.</p>
+                </div>
+                <div class="font-bold text-xl mb-4">Total: R$ <span id="order-total">0.00</span></div>
+                <div class="space-y-2">
+                    <label for="order-status" class="sr-only">Status do Pedido</label>
+                    <select id="order-status"
+                        class="block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="open">Aberto</option>
+                        <option value="closed">Fechado</option>
+                        <option value="paid">Pago</option>
+                    </select>
+                    <button id="update-order-status-btn"
+                        class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out"
+                        disabled>
+                        <i class="fas fa-sync-alt"></i> Atualizar Status
+                    </button>
+                    <button id="close-order-btn"
+                        class="w-full bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out"
+                        disabled>
+                        <i class="fas fa-dollar-sign"></i> Fechar Conta e Pagar
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <footer class="text-center text-gray-600 mt-8 py-4 border-t border-gray-300">
+            <p>&copy; 2024 Sistema de Bar. Todos os direitos reservados.</p>
+            <div class="mt-2">
+                <button id="daily-report-btn" class="text-blue-500 hover:text-blue-700 underline">
+                    <i class="fas fa-chart-line"></i> Relatório Diário
+                </button>
+                <button id="import-data-btn" class="ml-4 text-green-500 hover:text-green-700 underline">
+                    <i class="fas fa-upload"></i> Importar Dados Antigos
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <div id="add-table-modal" class="custom-modal-backdrop hidden" role="dialog" aria-modal="true"
+        aria-labelledby="add-table-modal-title">
+        <div class="custom-modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold" id="add-table-modal-title">Adicionar Nova Mesa</h3>
+                <button id="close-add-table-modal" class="text-gray-600 hover:text-gray-900" aria-label="Fechar">
+                    <i class="fas fa-times fa-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <form id="add-table-form">
+                <div class="mb-4">
+                    <label for="table-number" class="block text-sm font-medium text-gray-700">Número da Mesa:</label>
+                    <input type="number" id="table-number" name="table-number"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required>
+                </div>
+                <div class="mb-6">
+                    <label for="table-capacity" class="block text-sm font-medium text-gray-700">Capacidade:</label>
+                    <input type="number" id="table-capacity" name="table-capacity" value="4"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-add-table"
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        Adicionar Mesa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="add-item-modal" class="custom-modal-backdrop hidden" role="dialog" aria-modal="true"
+        aria-labelledby="add-item-modal-title">
+        <div class="custom-modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold" id="add-item-modal-title">Adicionar Novo Item ao Cardápio</h3>
+                <button id="close-add-item-modal" class="text-gray-600 hover:text-gray-900" aria-label="Fechar">
+                    <i class="fas fa-times fa-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <form id="add-item-form">
+                <div class="mb-4">
+                    <label for="item-name" class="block text-sm font-medium text-gray-700">Nome do Item:</label>
+                    <input type="text" id="item-name" name="item-name"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required>
+                </div>
+                <div class="mb-4">
+                    <label for="item-category" class="block text-sm font-medium text-gray-700">Categoria:</label>
+                    <input type="text" id="item-category" name="item-category" placeholder="Ex: Bebidas, Lanches"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required>
+                </div>
+                <div class="mb-4">
+                    <label for="item-price" class="block text-sm font-medium text-gray-700">Preço (R$):</label>
+                    <input type="number" id="item-price" name="item-price" step="0.01"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required>
+                </div>
+                <div class="mb-6">
+                    <label for="item-description" class="block text-sm font-medium text-gray-700">Descrição
+                        (Opcional):</label>
+                    <textarea id="item-description" name="item-description" rows="3"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-add-item"
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                        class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        Adicionar Item
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="payment-modal" class="custom-modal-backdrop hidden" role="dialog" aria-modal="true"
+        aria-labelledby="payment-modal-title">
+        <div class="custom-modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold" id="payment-modal-title">Pagamento (Mesa <span
+                        id="payment-modal-table-number"></span>)</h3>
+                <button id="close-payment-modal" class="text-gray-600 hover:text-gray-900" aria-label="Fechar">
+                    <i class="fas fa-times fa-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <p class="text-lg">Total a Pagar: <strong class="text-blue-600">R$ <span
+                            id="payment-total">0.00</span></strong></p>
+            </div>
+            <form id="payment-form">
+                <input type="hidden" id="payment-table-id-input">
+                <div class="mb-4">
+                    <label for="customer-name" class="block text-sm font-medium text-gray-700">Nome do Cliente
+                        (Opcional):</label>
+                    <input type="text" id="customer-name"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="mb-4">
+                    <label for="payment-method" class="block text-sm font-medium text-gray-700">Forma de
+                        Pagamento:</label>
+                    <select id="payment-method"
+                        class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="cash">Dinheiro</option>
+                        <option value="credit_card">Cartão de Crédito</option>
+                        <option value="debit_card">Cartão de Débito</option>
+                        <option value="pix">PIX</option>
+                    </select>
+                </div>
+                <div class="mb-6">
+                    <label for="amount-received" class="block text-sm font-medium text-gray-700">Valor Recebido
+                        (R$):</label>
+                    <input type="number" id="amount-received" step="0.01"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                    <p class="text-sm text-gray-500 mt-1">Troco: R$ <span id="change-due">0.00</span></p>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-payment"
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                        class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        Confirmar Pagamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="daily-report-modal" class="custom-modal-backdrop hidden" role="dialog" aria-modal="true"
+        aria-labelledby="daily-report-modal-title">
+        <div class="custom-modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold" id="daily-report-modal-title">Relatório Diário</h3>
+                <button id="close-daily-report-modal" class="text-gray-600 hover:text-gray-900" aria-label="Fechar">
+                    <i class="fas fa-times fa-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <label for="report-date" class="block text-sm font-medium text-gray-700">Selecione a Data:</label>
+                <input type="date" id="report-date" name="report-date"
+                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            </div>
+            <div id="report-content" class="space-y-3 max-h-80 overflow-y-auto">
+                <p class="text-center text-gray-500">Selecione uma data para gerar o relatório.</p>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="print-report-btn"
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                    <i class="fas fa-print"></i> Imprimir Relatório
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="import-modal" class="custom-modal-backdrop hidden" role="dialog" aria-modal="true"
+        aria-labelledby="import-modal-title">
+        <div class="custom-modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold" id="import-modal-title">Importar Dados Antigos</h3>
+                <button id="close-import-modal" class="text-gray-600 hover:text-gray-900" aria-label="Fechar">
+                    <i class="fas fa-times fa-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <form id="import-form">
+                <div class="mb-4">
+                    <label for="file-input" class="block text-sm font-medium text-gray-700">Selecione o arquivo JSON
+                        (.json):</label>
+                    <input type="file" id="file-input" name="file-input" accept=".json"
+                        class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                </div>
+                <div id="import-feedback" class="text-sm mb-4"></div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancel-import"
+                        class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                        class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-150 ease-in-out">
+                        <i class="fas fa-upload"></i> Importar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed bottom-5 right-5 space-y-2 z-50"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Elementos da UI (cache)
+            const tablesGrid = document.getElementById('tables-grid');
+            const menuContainer = document.getElementById('menu-container');
+            const categoryFilter = document.getElementById('category-filter');
+            const orderDetails = document.getElementById('order-details');
+            const currentTableNumberSpan = document.getElementById('current-table-number');
+            const orderTotalSpan = document.getElementById('order-total');
+            const orderStatusSelect = document.getElementById('order-status');
+            const updateOrderStatusBtn = document.getElementById('update-order-status-btn');
+            const closeOrderBtn = document.getElementById('close-order-btn');
+
+            const addTableModal = document.getElementById('add-table-modal');
+            const addItemModal = document.getElementById('add-item-modal');
+            const paymentModal = document.getElementById('payment-modal');
+            const dailyReportModal = document.getElementById('daily-report-modal');
+            const importModal = document.getElementById('import-modal');
+
+            const addTableForm = document.getElementById('add-table-form');
+            const addItemForm = document.getElementById('add-item-form');
+            const paymentForm = document.getElementById('payment-form');
+            const importForm = document.getElementById('import-form');
+
+            const tableNumberInput = document.getElementById('table-number');
+            const tableCapacityInput = document.getElementById('table-capacity');
+            const itemNameInput = document.getElementById('item-name');
+            const itemCategoryInput = document.getElementById('item-category');
+            const itemPriceInput = document.getElementById('item-price');
+            const itemDescriptionInput = document.getElementById('item-description');
+            const paymentModalTableNumberSpan = document.getElementById('payment-modal-table-number');
+            const paymentTotalSpan = document.getElementById('payment-total');
+            const amountReceivedInput = document.getElementById('amount-received');
+            const changeDueSpan = document.getElementById('change-due');
+            const reportDateInput = document.getElementById('report-date');
+            const reportContent = document.getElementById('report-content');
+            const fileInput = document.getElementById('file-input');
+            const importFeedback = document.getElementById('import-feedback');
+            const paymentTableIdInput = document.getElementById('payment-table-id-input');
+            const printReportBtn = document.getElementById('print-report-btn');
+
+            // Estado da aplicação
+            let tables = [];
+            let menuItems = [];
+            let categories = [];
+            let selectedTableId = null;
+            let currentOrderDetails = null;
+
+            // --- Funções da API ---
+            async function apiRequest(action, method = 'GET', body = null) {
+                let url = `./api.php?acao=${action}`;
+                const options = {
+                    method,
+                    headers: {}
+                };
+
+                if (method === 'POST' || method === 'PUT') {
+                    options.headers['Content-Type'] = 'application/json';
+                    if (body) {
+                        options.body = JSON.stringify(body);
+                    }
+                }
+
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        let errorMsg = `HTTP error ${response.status}`;
+                        try {
+                            const errorData = await response.json();
+                            errorMsg = errorData.error || errorData.message || errorMsg;
+                        } catch (e) { /* Ignore */ }
+                        console.error('API Error:', response.status, errorMsg);
+                        throw new Error(errorMsg);
+                    }
+
+                    const textResponse = await response.text();
+                    if (!textResponse) {
+                        return { success: true, message: "Operação bem-sucedida, sem conteúdo." };
+                    }
+                    try {
+                        return JSON.parse(textResponse);
+                    } catch (e) {
+                        console.warn("Response was not valid JSON after a successful (HTTP 200) request. Content:", textResponse);
+                        throw new Error("Resposta inválida do servidor (não JSON).");
+                    }
+                } catch (error) {
+                    console.error('Fetch error (apiRequest):', error.message);
+                    showToast(error.message || 'Falha na comunicação com o servidor.', 'error');
+                    throw error;
+                }
+            }
+
+            // --- Funções de Renderização ---
+            function renderTables() {
+                tablesGrid.innerHTML = '';
+                tables.forEach(table => {
+                    const tableDiv = document.createElement('div');
+                    tableDiv.className = `p-4 rounded-lg shadow text-center font-semibold cursor-pointer transition-all duration-150 ease-in-out ${table.status === 'disponivel' ? 'table-available hover:bg-green-200' :
+                        table.status === 'ocupada' ? 'table-occupied hover:bg-red-200' :
+                            'bg-gray-300'
+                        }`;
+                    if (table.id === selectedTableId) {
+                        tableDiv.classList.add('table-selected', 'ring-2', 'ring-blue-500');
+                    }
+                    tableDiv.textContent = `Mesa ${table.numero}`;
+                    tableDiv.dataset.tableId = table.id;
+                    tableDiv.dataset.tableNumber = table.numero;
+                    tableDiv.addEventListener('click', () => selectTable(table.id, table.numero));
+                    tablesGrid.appendChild(tableDiv);
+                });
+            }
+
+            function renderMenu(itemsToRender = menuItems) {
+                menuContainer.innerHTML = '';
+                categories.forEach(category => {
+                    const categoryItems = itemsToRender.filter(item => item.categoria === category);
+                    if (categoryItems.length > 0) {
+                        const categoryHeader = document.createElement('h3');
+                        categoryHeader.className = 'text-lg font-semibold text-gray-600 mt-3 mb-1';
+                        categoryHeader.textContent = category;
+                        menuContainer.appendChild(categoryHeader);
+
+                        categoryItems.forEach(item => {
+                            const itemDiv = document.createElement('div');
+                            itemDiv.className = 'p-3 bg-white rounded shadow-sm flex justify-between items-center cursor-pointer hover:shadow-md transition-shadow duration-150 ease-in-out';
+                            const textDiv = document.createElement('div');
+                            const nameH4 = document.createElement('h4');
+                            nameH4.className = 'font-medium text-gray-800';
+                            nameH4.textContent = item.nome;
+                            textDiv.appendChild(nameH4);
+                            if (item.descricao) {
+                                const descriptionP = document.createElement('p');
+                                descriptionP.className = 'text-sm text-gray-500';
+                                descriptionP.textContent = item.descricao;
+                                textDiv.appendChild(descriptionP);
+                            }
+                            const priceP = document.createElement('p');
+                            priceP.className = 'text-sm font-semibold text-blue-600';
+                            priceP.textContent = `R$ ${parseFloat(item.preco).toFixed(2)}`;
+                            textDiv.appendChild(priceP);
+                            itemDiv.appendChild(textDiv);
+                            const addButton = document.createElement('button');
+                            addButton.dataset.itemId = item.id;
+                            addButton.className = 'add-to-order-btn bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded text-sm transition duration-150 ease-in-out';
+                            const addIcon = document.createElement('i');
+                            addIcon.className = 'fas fa-plus';
+                            addButton.appendChild(addIcon);
+                            addButton.appendChild(document.createTextNode(' Adicionar'));
+                            addButton.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                addItemToOrder(item.id);
+                            });
+                            itemDiv.appendChild(addButton);
+                            menuContainer.appendChild(itemDiv);
+                        });
+                    }
+                });
+            }
+
+            function renderCategories() {
+                const existingOptions = new Set(Array.from(categoryFilter.options).map(opt => opt.value));
+                categories.forEach(category => {
+                    if (!existingOptions.has(category)) {
+                        const option = document.createElement('option');
+                        option.value = category;
+                        option.textContent = category;
+                        categoryFilter.appendChild(option);
+                    }
+                });
+            }
+
+            function renderOrderItems() {
+                orderDetails.innerHTML = '';
+                if (!currentOrderDetails || !currentOrderDetails.items || currentOrderDetails.items.length === 0) {
+                    orderDetails.innerHTML = '<p class="text-gray-500 italic">Nenhum item no pedido.</p>';
+                    updateOrderTotal();
+                    return;
+                }
+                currentOrderDetails.items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'flex justify-between items-center py-1 border-b border-gray-200';
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'flex-grow';
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = 'font-medium text-sm';
+                    nameSpan.textContent = item.nome;
+                    infoDiv.appendChild(nameSpan);
+                    const priceSpan = document.createElement('span');
+                    priceSpan.className = 'text-xs text-gray-600';
+                    priceSpan.textContent = ` (R$ ${parseFloat(item.preco_unitario).toFixed(2)})`;
+                    infoDiv.appendChild(priceSpan);
+                    itemDiv.appendChild(infoDiv);
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.className = 'flex items-center';
+                    const decreaseBtn = document.createElement('button');
+                    decreaseBtn.dataset.itemId = item.item_id;
+                    decreaseBtn.className = 'quantity-change-btn text-red-500 hover:text-red-700 px-1';
+                    decreaseBtn.dataset.change = '-1';
+                    decreaseBtn.setAttribute('aria-label', 'Diminuir quantidade');
+                    const decreaseIcon = document.createElement('i');
+                    decreaseIcon.className = 'fas fa-minus-circle';
+                    decreaseBtn.appendChild(decreaseIcon);
+                    decreaseBtn.addEventListener('click', () => updateOrderItemQuantity(item.item_id, -1));
+                    controlsDiv.appendChild(decreaseBtn);
+                    const quantitySpan = document.createElement('span');
+                    quantitySpan.className = 'px-2 text-sm';
+                    quantitySpan.textContent = item.quantidade;
+                    controlsDiv.appendChild(quantitySpan);
+                    const increaseBtn = document.createElement('button');
+                    increaseBtn.dataset.itemId = item.item_id;
+                    increaseBtn.className = 'quantity-change-btn text-green-500 hover:text-green-700 px-1';
+                    increaseBtn.dataset.change = '1';
+                    increaseBtn.setAttribute('aria-label', 'Aumentar quantidade');
+                    const increaseIcon = document.createElement('i');
+                    increaseIcon.className = 'fas fa-plus-circle';
+                    increaseBtn.appendChild(increaseIcon);
+                    increaseBtn.addEventListener('click', () => updateOrderItemQuantity(item.item_id, 1));
+                    controlsDiv.appendChild(increaseBtn);
+                    const removeBtn = document.createElement('button');
+                    removeBtn.dataset.itemId = item.item_id;
+                    removeBtn.className = 'remove-item-btn text-gray-400 hover:text-red-600 ml-2 px-1';
+                    removeBtn.setAttribute('aria-label', 'Remover item');
+                    const removeIcon = document.createElement('i');
+                    removeIcon.className = 'fas fa-trash-alt fa-xs';
+                    removeBtn.appendChild(removeIcon);
+                    removeBtn.addEventListener('click', () => removeOrderItem(item.item_id));
+                    controlsDiv.appendChild(removeBtn);
+                    itemDiv.appendChild(controlsDiv);
+                    orderDetails.appendChild(itemDiv);
+                });
+                updateOrderTotal();
+            }
+
+            // --- Funções de Lógica de Negócio ---
+            async function loadInitialData() {
+                try {
+                    showToast('Carregando dados iniciais...', 'info', 1500);
+                    const result = await apiRequest('carregar_dados_iniciais');
+                    if (result && result.success) {
+                        tables = result.mesas || [];
+                        menuItems = result.cardapio || [];
+                        categories = result.categorias || [];
+                        renderTables();
+                        renderMenu();
+                        renderCategories();
+                        showToast('Dados carregados com sucesso!', 'success', 2000);
+                    } else {
+                        const errorMessage = (result && result.error) ? result.error : 'Falha ao carregar dados iniciais.';
+                        showToast(errorMessage, 'error');
+                    }
+                } catch (error) { /* Handled by apiRequest */ }
+            }
+
+            async function selectTable(tableId, tableNumber) {
+                if (selectedTableId === tableId) return;
+                selectedTableId = tableId;
+                currentTableNumberSpan.textContent = tableNumber;
+                renderTables();
+                try {
+                    showToast(`Carregando pedido da Mesa ${tableNumber}...`, 'info', 1500);
+                    const result = await apiRequest(`carregar_pedido_mesa&mesa_id=${tableId}`);
+                    if (result && result.success && result.pedido) {
+                        currentOrderDetails = result.pedido;
+                    } else if (result && result.success && result.pedido === null) {
+                        currentOrderDetails = { id: null, mesa_id: tableId, status: 'aberto', items: [], valor_total: "0.00", cliente_nome: null };
+                        showToast(result.message || `Mesa ${tableNumber} selecionada. Pronta para novo pedido.`, 'info', 2000);
+                    } else {
+                        currentOrderDetails = { id: null, mesa_id: tableId, status: 'aberto', items: [], valor_total: "0.00", cliente_nome: null };
+                        if (result && result.error && !(result.message && result.pedido === null) ) {
+                           // Error message handled by apiRequest if it threw
+                        } else if (!result?.success && !(result && result.message && result.pedido === null)) {
+                             showToast('Falha ao carregar pedido da mesa.', 'error');
+                        }
+                    }
+                    orderStatusSelect.value = currentOrderDetails.status || 'aberto';
+                    updateOrderStatusBtn.disabled = false;
+                    closeOrderBtn.disabled = currentOrderDetails.status === 'pago';
+                } catch (error) {
+                    console.warn(`Falha ao carregar pedido para mesa ${tableNumber}. Error: ${error.message}`);
+                    currentOrderDetails = { id: null, mesa_id: tableId, status: 'aberto', items: [], valor_total: "0.00", cliente_nome: null };
+                    orderStatusSelect.value = 'aberto';
+                    updateOrderStatusBtn.disabled = false;
+                    closeOrderBtn.disabled = true;
+                }
+                renderOrderItems();
+            }
+
+            function prepareOrderItemsPayload() {
+                if (!currentOrderDetails || !currentOrderDetails.items) return [];
+                return currentOrderDetails.items.map(item => ({
+                    item_id: item.item_id,
+                    quantidade: item.quantidade,
+                }));
+            }
+
+            async function saveFullOrderState(showSuccessToast = true) {
+                if (!selectedTableId) {
+                    showToast("Nenhuma mesa selecionada para salvar pedido.", "error");
+                    return false;
+                }
+                const payload = {
+                    mesa_id: selectedTableId,
+                    pedido_id: currentOrderDetails ? currentOrderDetails.id : null,
+                    cliente_nome: currentOrderDetails ? currentOrderDetails.cliente_nome : null,
+                    itens: prepareOrderItemsPayload()
+                };
+                // No generic button to disable here, individual callers might handle their specific buttons
+                try {
+                    const result = await apiRequest('salvar_pedido', 'POST', payload);
+                    if (result && result.success && result.pedido) {
+                        currentOrderDetails = result.pedido;
+                        renderOrderItems();
+                        if (showSuccessToast && result.message) {
+                           showToast(result.message, 'success');
+                        } else if (showSuccessToast) {
+                           showToast('Pedido salvo com sucesso!', 'success');
+                        }
+                        const tableToUpdate = tables.find(t => t.id === selectedTableId);
+                        if (tableToUpdate && tableToUpdate.status !== 'ocupada' && currentOrderDetails.items.length > 0) {
+                            tableToUpdate.status = 'ocupada';
+                            renderTables();
+                        }
+                        return true;
+                    } else {
+                        const errorMessage = (result && result.error) ? result.error : 'Falha ao salvar o pedido.';
+                        showToast(errorMessage, 'error');
+                        return false;
+                    }
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            async function addItemToOrder(itemId) {
+                if (!selectedTableId) {
+                    showToast('Por favor, selecione uma mesa primeiro.', 'error'); return;
+                }
+                const menuItem = menuItems.find(i => i.id === itemId);
+                if (!menuItem) return;
+
+                if (!currentOrderDetails || currentOrderDetails.mesa_id !== selectedTableId) {
+                    currentOrderDetails = {
+                        id: null, mesa_id: selectedTableId, status: 'aberto', items: [],
+                        valor_total: "0.00", cliente_nome: document.getElementById('customer-name').value || null
+                    };
+                }
+                const existingItem = currentOrderDetails.items.find(i => i.item_id == menuItem.id);
+                if (existingItem) {
+                    existingItem.quantidade++;
+                } else {
+                    currentOrderDetails.items.push({
+                        item_id: menuItem.id, nome: menuItem.nome,
+                        quantidade: 1, preco_unitario: menuItem.preco
+                    });
+                }
+                renderOrderItems();
+                const success = await saveFullOrderState(false);
+                if(success) showToast(`${menuItem.nome} adicionado ao pedido.`, 'success');
+            }
+
+            async function updateOrderItemQuantity(itemId, change) {
+                if (!currentOrderDetails || !currentOrderDetails.items) return;
+                const itemIndex = currentOrderDetails.items.findIndex(i => i.item_id == itemId);
+                if (itemIndex === -1) return;
+                currentOrderDetails.items[itemIndex].quantidade += change;
+                if (currentOrderDetails.items[itemIndex].quantidade <= 0) {
+                    currentOrderDetails.items.splice(itemIndex, 1);
+                }
+                renderOrderItems();
+                const success = await saveFullOrderState(false);
+                if(success) showToast('Quantidade atualizada.', 'success');
+            }
+
+            async function removeOrderItem(itemId) {
+                 if (!currentOrderDetails || !currentOrderDetails.items) return;
+                currentOrderDetails.items = currentOrderDetails.items.filter(i => i.item_id != itemId);
+                renderOrderItems();
+                const success = await saveFullOrderState(false);
+                if(success) showToast('Item removido do pedido.', 'success');
+            }
+
+            function updateOrderTotal() {
+                let total = 0;
+                if (currentOrderDetails && currentOrderDetails.items) {
+                    currentOrderDetails.items.forEach(item => {
+                        total += parseFloat(item.preco_unitario) * item.quantidade;
+                    });
+                }
+                orderTotalSpan.textContent = total.toFixed(2);
+                if (currentOrderDetails) {
+                    currentOrderDetails.valor_total = total.toFixed(2);
+                }
+            }
+
+            async function handleUpdateOrderStatus() {
+                if (!selectedTableId || !currentOrderDetails || !currentOrderDetails.id) {
+                    showToast('Nenhum pedido selecionado para atualizar status.', 'error'); return;
+                }
+                const newStatus = orderStatusSelect.value;
+                const originalButtonText = updateOrderStatusBtn.innerHTML;
+                updateOrderStatusBtn.disabled = true;
+                updateOrderStatusBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Aguarde...';
+                try {
+                    const result = await apiRequest('atualizar_status_pedido', 'POST', {
+                        pedido_id: currentOrderDetails.id, status: newStatus
+                    });
+                    if (result && result.success) {
+                        showToast(result.message || 'Status do pedido atualizado!', 'success');
+                        currentOrderDetails.status = newStatus;
+                        orderStatusSelect.value = currentOrderDetails.status;
+                        closeOrderBtn.disabled = currentOrderDetails.status === 'pago';
+                        if (result.mesa_liberada && result.mesa_id) {
+                             const tableToUpdate = tables.find(t => t.id == result.mesa_id);
+                             if (tableToUpdate) tableToUpdate.status = 'disponivel';
+                             if(selectedTableId == result.mesa_id) resetOrderSection();
+                             renderTables();
+                        } else if (newStatus === 'aberto' || newStatus === 'fechado') {
+                            const tableToUpdate = tables.find(t => t.id === selectedTableId);
+                            if (tableToUpdate && tableToUpdate.status !== 'ocupada') {
+                                tableToUpdate.status = 'ocupada'; renderTables();
+                            }
+                        }
+                    } else if (result && result.error) {
+                         showToast(result.error, 'error');
+                    } else if (!result?.success) {
+                        showToast('Falha ao atualizar status do pedido.', 'error');
+                    }
+                } catch (error) { /* Handled by apiRequest */ }
+                finally {
+                    updateOrderStatusBtn.disabled = false;
+                    updateOrderStatusBtn.innerHTML = originalButtonText;
+                }
+            }
+
+            function resetOrderSection() {
+                selectedTableId = null; currentOrderDetails = null;
+                currentTableNumberSpan.textContent = 'Nenhuma';
+                orderDetails.innerHTML = '<p class="text-gray-500 italic">Selecione uma mesa e adicione itens ao pedido.</p>';
+                orderTotalSpan.textContent = '0.00';
+                orderStatusSelect.value = 'open';
+                updateOrderStatusBtn.disabled = true; closeOrderBtn.disabled = true;
+                renderTables();
+            }
+
+            function openModal(modalElement) { modalElement.classList.remove('hidden'); }
+
+            function closeModal(modalElement) {
+                modalElement.classList.add('hidden');
+                const form = modalElement.querySelector('form');
+                if (form) form.reset(); // Resets standard input fields, textareas, selects
+
+                // Specific cleanups beyond form.reset() if any (already handled for some)
+                if (modalElement.id === 'payment-modal') {
+                    // amountReceivedInput and customer-name are part of the form, reset by form.reset()
+                    changeDueSpan.textContent = '0.00';
+                    paymentTableIdInput.value = '';
+                }
+                if (modalElement.id === 'import-modal') {
+                    importFeedback.textContent = '';
+                    // fileInput is part of the form, reset by form.reset()
+                }
+                if (modalElement.id === 'daily-report-modal') {
+                    reportContent.innerHTML = '<p class="text-center text-gray-500">Selecione uma data para gerar o relatório.</p>';
+                    // reportDateInput.value is not reset by form.reset as it's not in a form tag directly inside modal-content.
+                    // Current behavior is to keep the date. If reset is needed: reportDateInput.value = '';
+                }
+            }
+
+            function setupEventListeners() {
+                document.getElementById('add-table-btn').addEventListener('click', () => openModal(addTableModal));
+                document.getElementById('add-item-btn').addEventListener('click', () => openModal(addItemModal));
+                document.getElementById('daily-report-btn').addEventListener('click', () => {
+                    if(!reportDateInput.value) reportDateInput.valueAsDate = new Date();
+                    openModal(dailyReportModal); handleDailyReport();
+                });
+                document.getElementById('import-data-btn').addEventListener('click', () => openModal(importModal));
+
+                document.querySelectorAll('[id^="close-"], [id^="cancel-"]').forEach(btn => {
+                    const modalId = btn.id.replace('close-', '').replace('cancel-', '').replace('-modal', '') + '-modal';
+                    const modalElement = document.getElementById(modalId);
+                    if (modalElement) btn.addEventListener('click', () => closeModal(modalElement));
+                    else if (btn.closest('.custom-modal-backdrop')) btn.addEventListener('click', () => closeModal(btn.closest('.custom-modal-backdrop')));
+                });
+
+                addTableForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const submitButton = addTableForm.querySelector('button[type="submit"]');
+                    const originalButtonText = submitButton.innerHTML;
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adicionando...';
+                    try {
+                        const payload = { numero: parseInt(tableNumberInput.value), capacidade: parseInt(tableCapacityInput.value) };
+                        const result = await apiRequest('adicionar_mesa', 'POST', payload);
+                        if (result && result.success && result.mesa) {
+                            tables.push(result.mesa); tables.sort((a, b) => a.numero - b.numero);
+                            renderTables(); showToast(result.message || `Mesa ${result.mesa.numero} adicionada!`, 'success');
+                            closeModal(addTableModal);
+                        } else if (result && result.error) showToast(result.error, 'error');
+                        else if (!result?.success) showToast('Erro ao adicionar mesa.', 'error');
+                    } catch (error) { /* Handled by apiRequest */ }
+                    finally { submitButton.disabled = false; submitButton.innerHTML = originalButtonText; }
+                });
+
+                addItemForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const submitButton = addItemForm.querySelector('button[type="submit"]');
+                    const originalButtonText = submitButton.innerHTML;
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Adicionando...';
+                    try {
+                        const payload = { nome: itemNameInput.value, categoria: itemCategoryInput.value, preco: parseFloat(itemPriceInput.value), descricao: itemDescriptionInput.value };
+                        const result = await apiRequest('adicionar_item_cardapio', 'POST', payload);
+                        if (result && result.success && result.item) {
+                            menuItems.push(result.item);
+                            const newCategory = result.item.categoria;
+                            if (!categories.includes(newCategory)) { categories.push(newCategory); categories.sort(); renderCategories(); }
+                            filterMenu(); showToast(result.message || `${result.item.nome} adicionado!`, 'success');
+                            closeModal(addItemModal);
+                        } else if (result && result.error) showToast(result.error, 'error');
+                        else if (!result?.success) showToast('Erro ao adicionar item.', 'error');
+                    } catch (error) { /* Handled by apiRequest */ }
+                    finally { submitButton.disabled = false; submitButton.innerHTML = originalButtonText; }
+                });
+
+                paymentForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (!currentOrderDetails || !currentOrderDetails.id) { showToast('Nenhum pedido para processar pagamento.', 'error'); return; }
+                    const submitButton = paymentForm.querySelector('button[type="submit"]');
+                    const originalButtonText = submitButton.innerHTML;
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processando...';
+                    try {
+                        const payload = {
+                            pedido_id: currentOrderDetails.id,
+                            metodo_pagamento: document.getElementById('payment-method').value,
+                            valor_pago: parseFloat(amountReceivedInput.value) || parseFloat(currentOrderDetails.valor_total),
+                            cliente_nome: document.getElementById('customer-name').value || null
+                        };
+                        const result = await apiRequest('fechar_conta', 'POST', payload);
+                        if (result && result.success) {
+                            showToast(result.message || 'Pagamento confirmado!', 'success');
+                            if (result.mesa_id_liberada) {
+                                const tableToUpdate = tables.find(t => t.id == result.mesa_id_liberada);
+                                if (tableToUpdate) tableToUpdate.status = 'disponivel';
+                            }
+                            if(currentOrderDetails && currentOrderDetails.id == payload.pedido_id) currentOrderDetails.status = 'pago';
+                            closeModal(paymentModal); resetOrderSection(); renderTables();
+                        } else if (result && result.error) showToast(result.error, 'error');
+                        else if (!result?.success) showToast('Erro no pagamento.', 'error');
+                    } catch (error) { /* Handled by apiRequest */ }
+                    finally { submitButton.disabled = false; submitButton.innerHTML = originalButtonText; }
+                });
+
+                importForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (!fileInput.files.length) {
+                        importFeedback.textContent = 'Por favor, selecione um arquivo.';
+                        importFeedback.className = 'text-sm mb-4 text-red-500'; return;
+                    }
+                    const file = fileInput.files[0]; const formData = new FormData();
+                    formData.append('importFile', file);
+                    const submitButton = importForm.querySelector('button[type="submit"]');
+                    const originalButtonText = submitButton.innerHTML;
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Importando...';
+                    importFeedback.textContent = 'Enviando arquivo...';
+                    importFeedback.className = 'text-sm mb-4 text-blue-500';
+                    try {
+                        const response = await fetch('./api.php?acao=importar_dados', { method: 'POST', body: formData });
+                        if (!response.ok) {
+                             const errorText = await response.text();
+                             throw new Error(`Falha na importação: ${response.statusText} ${errorText}`);
+                        }
+                        const result = await response.json();
+                        if (result && result.success) {
+                            importFeedback.textContent = result.message || 'Importação bem-sucedida!';
+                            importFeedback.className = 'text-sm mb-4 text-green-500';
+                            showToast(result.message || 'Importação bem-sucedida!', 'success');
+                            loadInitialData();
+                            setTimeout(() => closeModal(importModal), 1500);
+                        } else {
+                            const errorMessage = (result && result.error) ? result.error : 'Erro na importação (resposta inválida).';
+                            importFeedback.textContent = errorMessage;
+                            importFeedback.className = 'text-sm mb-4 text-red-500';
+                            showToast(errorMessage, 'error');
+                        }
+                    } catch (error) {
+                        console.error('Import error:', error);
+                        importFeedback.textContent = `Erro na importação: ${error.message}`;
+                        importFeedback.className = 'text-sm mb-4 text-red-500';
+                        showToast(`Erro na importação: ${error.message}`, 'error');
+                    } finally {
+                        submitButton.disabled = false; submitButton.innerHTML = originalButtonText;
+                    }
+                });
+
+                categoryFilter.addEventListener('change', filterMenu);
+                updateOrderStatusBtn.addEventListener('click', handleUpdateOrderStatus);
+                closeOrderBtn.addEventListener('click', () => {
+                    if (!currentOrderDetails || !selectedTableId) { showToast('Nenhuma mesa selecionada para fechar conta.', 'error'); return; }
+                    paymentModalTableNumberSpan.textContent = currentTableNumberSpan.textContent;
+                    paymentTotalSpan.textContent = currentOrderDetails.valor_total;
+                    paymentTableIdInput.value = selectedTableId;
+                    amountReceivedInput.value = currentOrderDetails.valor_total;
+                    calculateChange(); openModal(paymentModal);
+                });
+                amountReceivedInput.addEventListener('input', calculateChange);
+                reportDateInput.addEventListener('change', handleDailyReport);
+                printReportBtn.addEventListener('click', printReport);
+            }
+
+            function filterMenu() {
+                const selectedCategory = categoryFilter.value;
+                if (selectedCategory === 'all') renderMenu(menuItems);
+                else renderMenu(menuItems.filter(item => item.categoria === selectedCategory));
+            }
+
+            function calculateChange() {
+                const total = parseFloat(paymentTotalSpan.textContent);
+                const received = parseFloat(amountReceivedInput.value);
+                if (!isNaN(total) && !isNaN(received) && received >= total) changeDueSpan.textContent = (received - total).toFixed(2);
+                else changeDueSpan.textContent = '0.00';
+            }
+
+            async function handleDailyReport() {
+                const date = reportDateInput.value;
+                if (!date) { reportContent.innerHTML = '<p class="text-center text-gray-500">Por favor, selecione uma data.</p>'; return; }
+
+                reportDateInput.disabled = true;
+                printReportBtn.disabled = true;
+                const originalPrintBtnText = printReportBtn.innerHTML;
+                // No direct "generate" button, but we can indicate loading on print button or a general area.
+                // For simplicity, just disabling for now.
+                showToast(`Gerando relatório para ${date}...`, 'info', 1500);
+                try {
+                    const result = await apiRequest(`gerar_relatorio_diario&data=${date}`);
+                    reportContent.innerHTML = '';
+                    if (result && result.success && result.relatorio) {
+                        const reportData = result.relatorio;
+                        const pTotalSales = document.createElement('p');
+                        const strongTotalSales = document.createElement('strong');
+                        strongTotalSales.textContent = 'Total de Vendas:';
+                        pTotalSales.appendChild(strongTotalSales);
+                        pTotalSales.appendChild(document.createTextNode(` R$ ${parseFloat(reportData.total_vendas).toFixed(2)}`));
+                        reportContent.appendChild(pTotalSales);
+                        const pOrdersCount = document.createElement('p');
+                        const strongOrdersCount = document.createElement('strong');
+                        strongOrdersCount.textContent = 'Total de Pedidos:';
+                        pOrdersCount.appendChild(strongOrdersCount);
+                        pOrdersCount.appendChild(document.createTextNode(` ${reportData.total_pedidos}`));
+                        reportContent.appendChild(pOrdersCount);
+                        const h4ItemsSold = document.createElement('h4');
+                        h4ItemsSold.className = 'font-semibold mt-2';
+                        h4ItemsSold.textContent = 'Itens Vendidos:';
+                        reportContent.appendChild(h4ItemsSold);
+                        const ulItemsSold = document.createElement('ul');
+                        ulItemsSold.className = 'list-disc pl-5 text-sm';
+                        if (reportData.itens_vendidos && reportData.itens_vendidos.length > 0) {
+                            reportData.itens_vendidos.forEach(item => {
+                                const li = document.createElement('li');
+                                li.textContent = `${item.nome}: ${item.quantidade_vendida} unid. (R$ ${parseFloat(item.valor_total_item).toFixed(2)})`;
+                                ulItemsSold.appendChild(li);
+                            });
+                        } else {
+                            const li = document.createElement('li');
+                            li.textContent = 'Nenhum item vendido nesta data.';
+                            ulItemsSold.appendChild(li);
+                        }
+                        reportContent.appendChild(ulItemsSold);
+                        showToast('Relatório gerado.', 'success');
+                    } else {
+                        const pNoData = document.createElement('p');
+                        pNoData.className = 'text-center text-gray-500';
+                        pNoData.textContent = (result && result.error) ? result.error : 'Nenhum dado encontrado para esta data.';
+                        reportContent.appendChild(pNoData);
+                        if(!(result && result.error)) showToast('Nenhum dado para o relatório nesta data.', 'info', 2500);
+                    }
+                } catch (error) {
+                    reportContent.innerHTML = `<p class="text-center text-red-500">Erro ao gerar relatório: ${error.message}</p>`;
+                } finally {
+                    reportDateInput.disabled = false;
+                    printReportBtn.disabled = false;
+                }
+            }
+
+            function printReport() {
+                const reportHtml = reportContent.innerHTML;
+                const date = reportDateInput.value;
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(\`
+                    <html>
+                        <head><title>Relatório Diário - \${date}</title>
+                        <style> body { font-family: sans-serif; margin: 20px; } h3 { text-align: center; } ul { padding-left: 20px; } li { margin-bottom: 5px; } </style>
+                        </head>
+                        <body>
+                            <h3>Relatório Diário - \${new Date(date + 'T00:00:00').toLocaleDateString('pt-BR')}</h3>
+                            \${reportHtml}
+                            <script>setTimeout(() => { window.print(); window.close(); }, 250);</script>
+                        </body>
+                    </html>
+                \`);
+                printWindow.document.close();
+            }
+
+            function showToast(message, type = 'info', duration = 3000) {
+                const toastContainer = document.getElementById('toast-container');
+                // No need to re-create toastContainer if it's already in HTML.
+                // if (!toastContainer) { ... }
+
+                const toast = document.createElement('div');
+                toast.className = \`toast \${type}\`;
+                toast.textContent = message;
+
+                toastContainer.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 100);
+
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                           toast.parentNode.removeChild(toast);
+                        }
+                    }, 500);
+                }, duration);
+            }
+
+            loadInitialData();
+            setupEventListeners();
+            if(reportDateInput) reportDateInput.valueAsDate = new Date();
+        });
+    </script>
+</body>
+
+</html>
